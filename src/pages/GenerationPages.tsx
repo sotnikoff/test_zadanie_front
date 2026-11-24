@@ -184,9 +184,6 @@ export function GeneratePage() {
             <WandSparkles size={18} />
             {generate.isPending ? "Запускаем…" : "Создать стихотворение"}
           </Button>
-          <p className="center muted small-text">
-            Если что-то пойдёт не так, единицы вернутся на баланс.
-          </p>
         </form>
         <aside className="creation-aside">
           <div className="preview-card">

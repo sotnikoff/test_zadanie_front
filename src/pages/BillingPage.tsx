@@ -1,5 +1,4 @@
 import { DecorativeIcon } from "../shared/components/DecorativeIcon";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { useTransactions, useWallet } from "../hooks/useData";
 import { Stat } from "./Dashboard";
 import {
@@ -9,7 +8,6 @@ import {
   number,
   Transactions,
 } from "../shared/components/common";
-import { summarize } from "../shared/utils/summary";
 export function BillingPage() {
   const wallet = useWallet();
   const tx = useTransactions();
@@ -24,31 +22,18 @@ export function BillingPage() {
         }}
       />
     );
-  const summary = summarize(tx.data);
   return (
     <>
       <Heading
         title="Баланс и операции"
         description="Прозрачная история всех единиц. Больше пространства для ваших идей."
       />
-      <div className="stats">
+      <div className="stats balance-summary">
         <Stat
           icon={<DecorativeIcon name="credits" />}
-          title="Доступно сейчас"
+          title="Баланс"
           value={`${number(wallet.data.balance)} ед.`}
           note="Одна генерация — 10 единиц"
-        />
-        <Stat
-          icon={<ArrowUpRight />}
-          title="Всего начислено"
-          value={`${number(summary.credited)} ед.`}
-          note="За всё время"
-        />
-        <Stat
-          icon={<ArrowDownLeft />}
-          title="Чистый расход"
-          value={`${number(summary.spent)} ед.`}
-          note="Списания за вычетом возвратов"
         />
       </div>
       <div className="balance-note">

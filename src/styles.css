@@ -152,6 +152,15 @@ select:focus {
   border-color: #9579dc;
   box-shadow: 0 0 0 3px #7556cf12;
 }
+select:not([multiple]) {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23837892' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
 input::placeholder,
 textarea::placeholder {
   color: #aaa6b4;
@@ -543,6 +552,9 @@ small {
   gap: 17px;
   margin: 22px 0 29px;
 }
+.balance-summary {
+  grid-template-columns: minmax(0, 1fr);
+}
 .card {
   background: white;
   border: 1px solid var(--border);
@@ -603,7 +615,8 @@ small {
 }
 .section-heading select {
   font-size: 12px;
-  padding: 8px 10px;
+  padding-block: 8px;
+  padding-left: 12px;
 }
 .text-link {
   color: #8a6dbd;
@@ -741,6 +754,11 @@ small {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(230px, 1fr);
   gap: 25px;
+}
+.creation-aside {
+  position: sticky;
+  top: 106px;
+  align-self: start;
 }
 .creation-form {
   padding: 26px;
