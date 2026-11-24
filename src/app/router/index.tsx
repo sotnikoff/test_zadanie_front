@@ -122,9 +122,11 @@ function Layout() {
             >
               {mobile ? <X /> : <Menu />}
             </button>
-            <span className="breadcrumb">
-              Мастерская <span>/</span> <strong>{page}</strong>
-            </span>
+            <nav className="breadcrumb" aria-label="Навигационная цепочка">
+              <Link to="/">Мастерская</Link>
+              <span aria-hidden="true">/</span>
+              <strong aria-current="page">{page}</strong>
+            </nav>
           </div>
           <div className="topbar-right">
             <Link className="balance-pill" to="/billing">

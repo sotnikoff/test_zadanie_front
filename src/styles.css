@@ -344,6 +344,11 @@ small {
   font-size: 12px;
   color: #9b95a6;
 }
+.breadcrumb a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .breadcrumb span {
   margin: 0 14px;
   color: #d0cbd8;
