@@ -1,18 +1,15 @@
-import { DecorativeIcon } from "../../../shared/components/DecorativeIcon";
+import { DecorativeIcon } from "../shared/components/DecorativeIcon";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import {
-  useTransactions,
-  useWallet,
-} from "../../generations/presentation/hooks";
-import { Stat } from "../../generations/presentation/Dashboard";
+import { useTransactions, useWallet } from "../hooks/useData";
+import { Stat } from "./Dashboard";
 import {
   ErrorState,
   Heading,
   Loading,
   number,
   Transactions,
-} from "../../../shared/components/common";
-import { summarize } from "../domain/summary";
+} from "../shared/components/common";
+import { summarize } from "../shared/utils/summary";
 export function BillingPage() {
   const wallet = useWallet();
   const tx = useTransactions();

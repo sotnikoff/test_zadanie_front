@@ -1,14 +1,10 @@
-import { DecorativeIcon } from "../../../shared/components/DecorativeIcon";
+import { DecorativeIcon } from "../shared/components/DecorativeIcon";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Feather, Sparkles, WandSparkles } from "lucide-react";
-import {
-  useCurrentUser,
-  useGateways,
-  useRefresh,
-} from "../../../app/providers";
-import { moods, type Mood } from "../../../shared/types/models";
+import { useCurrentUser, useApi, useRefresh } from "../app/providers";
+import { moods, type Mood } from "../api/types";
 import {
   Badge,
   date,
@@ -19,11 +15,11 @@ import {
   Loading,
   pending,
   Poem,
-} from "../../../shared/components/common";
-import { Button } from "../../../shared/components/ui/button";
-import { useGenerations } from "./hooks";
+} from "../shared/components/common";
+import { Button } from "../shared/components/ui/button";
+import { useGenerations } from "../hooks/useData";
 export function GeneratePage() {
-  const { generations } = useGateways();
+  const api = useApi();
   const { data: user } = useCurrentUser();
   const refresh = useRefresh();
   const navigate = useNavigate();
@@ -34,11 +30,11 @@ export function GeneratePage() {
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const quote = useQuery({
     queryKey: ["quote", user?.id],
-    queryFn: () => generations.getQuote(),
+    queryFn: () => api.getQuote(),
   });
   const generate = useMutation({
     mutationFn: () =>
-      generations.generate({
+      api.generate({
         requestId,
         topic,
         instructions,
@@ -275,12 +271,12 @@ export function HistoryPage() {
 }
 export function DetailPage() {
   const { id = "" } = useParams();
-  const { generations } = useGateways();
+  const api = useApi();
   const { data: user } = useCurrentUser();
   const refresh = useRefresh();
   const query = useQuery({
     queryKey: ["generation", user?.id, id],
-    queryFn: () => generations.findById(id),
+    queryFn: () => api.getGeneration(id),
     refetchInterval: (q) =>
       q.state.data && pending(q.state.data) ? 500 : false,
   });

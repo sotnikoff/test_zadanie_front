@@ -23,19 +23,16 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { useCurrentUser, useGateways, useToast } from "../providers";
-import { LoginPage } from "../../modules/auth/presentation/LoginPage";
-import { Dashboard } from "../../modules/generations/presentation/Dashboard";
+import { useCurrentUser, useApi, useToast } from "../providers";
+import { LoginPage } from "../../pages/LoginPage";
+import { Dashboard } from "../../pages/Dashboard";
 import {
   GeneratePage,
   HistoryPage,
   DetailPage,
-} from "../../modules/generations/presentation/GenerationPages";
-import { BillingPage } from "../../modules/billing/presentation/BillingPage";
-import {
-  useWallet,
-  useGenerationSync,
-} from "../../modules/generations/presentation/hooks";
+} from "../../pages/GenerationPages";
+import { BillingPage } from "../../pages/BillingPage";
+import { useWallet, useGenerationSync } from "../../hooks/useData";
 import { ErrorState, Loading, number } from "../../shared/components/common";
 import { errorMessage } from "../../shared/errors/AppError";
 function Guard() {
@@ -56,14 +53,14 @@ function Layout() {
   useGenerationSync();
   const { data: user } = useCurrentUser();
   const wallet = useWallet();
-  const { auth } = useGateways();
+  const api = useApi();
   const client = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
   const [mobile, setMobile] = useState(false);
   const logout = useMutation({
-    mutationFn: () => auth.logout(),
+    mutationFn: () => api.logout(),
     onSuccess: () => {
       client.clear();
       navigate("/login");

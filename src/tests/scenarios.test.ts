@@ -1,18 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createGateways, type Gateways } from "../app/composition";
-import { parseConfig } from "../app/config";
-import {
-  DB_KEY,
-  LocalDatabase,
-  type StoragePort,
-} from "../shared/storage/database";
-import { LocalRuntime } from "../shared/storage/runtime";
-import { LocalAuthAdapter } from "../modules/auth/infrastructure/local/LocalAuthAdapter";
-import { LocalGenerationAdapter } from "../modules/generations/infrastructure/local/LocalGenerationAdapter";
-import { HttpAuthAdapter } from "../modules/auth/infrastructure/http/HttpAuthAdapter";
-import { HttpClient } from "../shared/api/client";
-import * as decoders from "../shared/api/decoders";
-class MemoryStorage implements StoragePort {
+import { createApi, parseConfig } from "../api";
+import type { Api } from "../api/types";
+import { createStorage, DB_KEY, type Storage } from "../api/storage";
+import { createHttpApi } from "../api/http";
+import { createDemoData } from "../api/demo-data";
+class MemoryStorage implements Storage {
   values = new Map<string, string>();
   blocked = false;
   getItem(key: string) {
@@ -35,81 +27,79 @@ const request = () => ({
   stanzaCount: 2,
 });
 let storage: MemoryStorage;
-let api: Gateways;
+let api: Api;
 async function login(name = "user") {
-  return api.auth.login({ email: `${name}@example.com`, password: "demo1234" });
+  return api.login({ email: `${name}@example.com`, password: "demo1234" });
 }
 beforeEach(async () => {
   vi.useFakeTimers();
   storage = new MemoryStorage();
-  api = createGateways(local, storage);
+  api = createApi(local, storage);
   await api.demo!.setDelay(false);
 });
 afterEach(() => {
   vi.clearAllTimers();
   vi.useRealTimers();
 });
-describe("Local adapter business scenarios", () => {
+describe("Local API business scenarios", () => {
   it("authenticates, persists session and logs out", async () => {
     const session = await login();
     expect(session.user.email).toBe("user@example.com");
-    const next = createGateways(local, storage);
-    expect((await next.auth.getCurrentUser())?.id).toBe(session.user.id);
-    await next.auth.logout();
-    expect(await next.auth.getCurrentUser()).toBeNull();
+    const next = createApi(local, storage);
+    expect((await next.getCurrentUser())?.id).toBe(session.user.id);
+    await next.logout();
+    expect(await next.getCurrentUser()).toBeNull();
   });
   it("rejects incorrect credentials and unauthorized queries", async () => {
     await expect(
-      api.auth.login({ email: "user@example.com", password: "bad" }),
+      api.login({ email: "user@example.com", password: "bad" }),
     ).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
-    await expect(api.generations.findAll()).rejects.toMatchObject({
+    await expect(api.getGenerations()).rejects.toMatchObject({
       code: "UNAUTHORIZED",
     });
   });
   it("creates, debits once, processes and completes correct stanza count", async () => {
     await login();
-    const before = await api.billing.getBalance();
-    const g = await api.generations.generate(request());
+    const before = await api.getWallet();
+    const g = await api.generate(request());
     expect(g.status).toBe("PENDING");
-    expect((await api.billing.getBalance()).balance).toBe(before.balance - 10);
+    expect((await api.getWallet()).balance).toBe(before.balance - 10);
     await vi.advanceTimersByTimeAsync(0);
-    expect((await api.generations.findById(g.id)).status).toBe("PROCESSING");
+    expect((await api.getGeneration(g.id)).status).toBe("PROCESSING");
     await vi.runAllTimersAsync();
-    const done = await api.generations.findById(g.id);
+    const done = await api.getGeneration(g.id);
     expect(done.status).toBe("COMPLETED");
     expect(done.result!.split("\n\n")).toHaveLength(2);
     expect(
       done.result!.split("\n\n").every((s) => s.split("\n").length === 4),
     ).toBe(true);
     expect(
-      (await api.billing.getTransactions()).filter(
-        (t) => t.generationId === g.id,
-      ),
+      (await api.getTransactions()).filter((t) => t.generationId === g.id),
     ).toHaveLength(1);
   });
   it("rejects insufficient funds without partial changes", async () => {
     await login("user2");
-    await api.generations.generate(request());
+    await api.generate(request());
     const before = storage.getItem(DB_KEY);
-    await expect(api.generations.generate(request())).rejects.toMatchObject({
+    await expect(api.generate(request())).rejects.toMatchObject({
       code: "INSUFFICIENT_BALANCE",
     });
     expect(storage.getItem(DB_KEY)).toBe(before);
-    expect((await api.billing.getBalance()).balance).toBe(0);
+    expect((await api.getWallet()).balance).toBe(0);
   });
   it("refunds failure once, including retries and repeated recovery", async () => {
     await login();
-    const before = (await api.billing.getBalance()).balance;
+    const before = (await api.getWallet()).balance;
     await api.demo!.failNext();
     const input = request();
-    const g = await api.generations.generate(input);
+    const g = await api.generate(input);
     await vi.runAllTimersAsync();
-    expect((await api.generations.findById(g.id)).status).toBe("FAILED");
-    expect((await api.billing.getBalance()).balance).toBe(before);
-    await api.generations.generate(input);
-    const next = createGateways(local, storage);
-    createGateways(local, storage);
-    const tx = await next.billing.getTransactions();
+    expect((await api.getGeneration(g.id)).status).toBe("FAILED");
+    expect((await api.getWallet()).balance).toBe(before);
+    await api.generate(input);
+    const next = createApi(local, storage);
+    createApi(local, storage);
+    const tx = await next.getTransactions();
     expect(
       tx.filter((t) => t.generationId === g.id && t.type === "REFUND"),
     ).toHaveLength(1);
@@ -121,104 +111,125 @@ describe("Local adapter business scenarios", () => {
     await login();
     const input = request();
     const [a, b] = await Promise.all([
-      api.generations.generate(input),
-      api.generations.generate(input),
+      api.generate(input),
+      api.generate(input),
     ]);
     expect(a.id).toBe(b.id);
     expect(
-      (await api.billing.getTransactions()).filter(
-        (t) => t.generationId === a.id,
-      ),
+      (await api.getTransactions()).filter((t) => t.generationId === a.id),
     ).toHaveLength(1);
     await expect(
-      api.generations.generate({ ...input, topic: "Другая тема" }),
+      api.generate({ ...input, topic: "Другая тема" }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
   it("isolates user history, wallets and direct access by id", async () => {
     const anna = await login();
-    const gs = await api.generations.findAll();
+    const gs = await api.getGenerations();
     await login("user2");
-    const current = await api.auth.getCurrentUser();
+    const current = await api.getCurrentUser();
     expect(
-      (await api.generations.findAll()).every((g) => g.userId === current!.id),
+      (await api.getGenerations()).every((g) => g.userId === current!.id),
     ).toBe(true);
     expect(
-      (await api.billing.getTransactions()).every(
-        (t) => t.userId === current!.id,
-      ),
+      (await api.getTransactions()).every((t) => t.userId === current!.id),
     ).toBe(true);
-    expect((await api.billing.getBalance()).userId).not.toBe(anna.user.id);
-    await expect(api.generations.findById(gs[0].id)).rejects.toMatchObject({
+    expect((await api.getWallet()).userId).not.toBe(anna.user.id);
+    await expect(api.getGeneration(gs[0].id)).rejects.toMatchObject({
       code: "NOT_FOUND",
     });
   });
   it("keeps in-flight work assigned to its original user", async () => {
     const owner = await login();
-    const g = await api.generations.generate(request());
+    const g = await api.generate(request());
     await login("user2");
     await vi.runAllTimersAsync();
     await login();
-    const done = await api.generations.findById(g.id);
+    const done = await api.getGeneration(g.id);
     expect(done.userId).toBe(owner.user.id);
     expect(done.status).toBe("COMPLETED");
   });
   it("recovers an interrupted job with refund after reload", async () => {
-    const runtime = new LocalRuntime(new LocalDatabase(storage));
-    const auth = new LocalAuthAdapter(runtime);
-    const generations = new LocalGenerationAdapter(runtime);
-    await auth.login({ email: "user@example.com", password: "demo1234" });
-    const before = runtime.db
-      .read()
-      .wallets.find(
-        (w) => w.userId === runtime.db.read().session!.user.id,
-      )!.balance;
-    const g = await generations.generate(request());
+    await login();
+    const before = (await api.getWallet()).balance;
+    const g = await api.generate(request());
     await vi.advanceTimersByTimeAsync(0);
-    runtime.stop();
-    const next = createGateways(local, storage);
-    expect((await next.generations.findById(g.id)).status).toBe("FAILED");
-    expect((await next.billing.getBalance()).balance).toBe(before);
+    api.dispose(); // The old page's timers disappear on reload.
+    const next = createApi(local, storage);
+    expect((await next.getGeneration(g.id)).status).toBe("FAILED");
+    expect((await next.getWallet()).balance).toBe(before);
     expect(
-      (await next.billing.getTransactions()).filter(
+      (await next.getTransactions()).filter(
         (t) => t.generationId === g.id && t.type === "REFUND",
       ),
     ).toHaveLength(1);
   });
   it("does not change balance in memory or storage if writing fails", async () => {
     await login();
-    const before = await api.billing.getBalance();
+    const before = await api.getWallet();
     const raw = storage.getItem(DB_KEY);
     storage.blocked = true;
-    await expect(api.generations.generate(request())).rejects.toMatchObject({
+    await expect(api.generate(request())).rejects.toMatchObject({
       code: "STORAGE",
     });
     expect(storage.getItem(DB_KEY)).toBe(raw);
-    expect(await api.billing.getBalance()).toEqual(before);
+    expect(await api.getWallet()).toEqual(before);
+  });
+  it("does not expose mutable storage through API responses", async () => {
+    const session = await login();
+    session.user.displayName = "Changed outside API";
+    expect((await api.getCurrentUser())?.displayName).toBe("Анна");
+    const wallet = await api.getWallet();
+    const balance = wallet.balance;
+    wallet.balance = -100;
+    expect((await api.getWallet()).balance).toBe(balance);
+    const generation = await api.generate(request());
+    generation.cost = 0;
+    expect((await api.getGeneration(generation.id)).cost).toBe(10);
+  });
+  it("reports a failed background save and recovers it after reload", async () => {
+    await login();
+    const balance = (await api.getWallet()).balance;
+    const generation = await api.generate(request());
+    await vi.advanceTimersByTimeAsync(0);
+    storage.blocked = true;
+    await vi.runAllTimersAsync();
+    await expect(api.getGeneration(generation.id)).rejects.toMatchObject({
+      code: "STORAGE",
+    });
+    expect((await api.getWallet()).balance).toBe(balance - 10);
+    api.dispose();
+    storage.blocked = false;
+    const reloaded = createApi(local, storage);
+    expect((await reloaded.getGeneration(generation.id)).status).toBe("FAILED");
+    expect((await reloaded.getWallet()).balance).toBe(balance);
+    expect(
+      (await reloaded.getTransactions()).filter(
+        (t) => t.generationId === generation.id && t.type === "REFUND",
+      ),
+    ).toHaveLength(1);
   });
   it("persists completed generations and transactions", async () => {
     await login();
-    const g = await api.generations.generate(request());
+    const g = await api.generate(request());
     await vi.runAllTimersAsync();
-    const next = createGateways(local, storage);
-    expect((await next.generations.findById(g.id)).status).toBe("COMPLETED");
-    expect(await next.billing.getTransactions()).toEqual(
-      await api.billing.getTransactions(),
-    );
+    const next = createApi(local, storage);
+    expect((await next.getGeneration(g.id)).status).toBe("COMPLETED");
+    expect(await next.getTransactions()).toEqual(await api.getTransactions());
   });
   it("resets demo data and cancels active jobs", async () => {
     await login();
-    await api.generations.generate(request());
+    await api.generate(request());
     await api.demo!.reset();
     await vi.runAllTimersAsync();
     await api.demo!.setDelay(false);
-    expect(await api.auth.getCurrentUser()).toBeNull();
+    expect(await api.getCurrentUser()).toBeNull();
     await login();
-    expect(await api.generations.findAll()).toHaveLength(3);
+    expect(await api.getGenerations()).toHaveLength(3);
   });
 });
 describe("User-only storage migration", () => {
   it("seeds only regular accounts and exposes no administrative gateway", async () => {
-    const state = new LocalDatabase(storage).read();
+    const state = createStorage(storage).read();
     expect(state.version).toBe(2);
     expect(state.users.map((u) => u.email)).toEqual([
       "user@example.com",
@@ -227,15 +238,15 @@ describe("User-only storage migration", () => {
     expect(state.users.every((u) => !("role" in u))).toBe(true);
     expect(api).not.toHaveProperty("admin");
     expect(
-      createGateways({ ...local, dataSource: "http" }, storage),
+      createApi({ ...local, dataSource: "http" }, storage),
     ).not.toHaveProperty("admin");
     await expect(
-      api.auth.login({ email: "admin@example.com", password: "demo1234" }),
+      api.login({ email: "admin@example.com", password: "demo1234" }),
     ).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
   });
   it("migrates legacy privileged sessions without losing any user's balance or history", async () => {
     await login();
-    const before = new LocalDatabase(storage).read();
+    const before = createStorage(storage).read();
     const legacy = {
       ...before,
       version: 1,
@@ -255,8 +266,8 @@ describe("User-only storage migration", () => {
       },
     };
     storage.setItem(DB_KEY, JSON.stringify(legacy));
-    const next = createGateways(local, storage);
-    const migrated = new LocalDatabase(storage).read();
+    const next = createApi(local, storage);
+    const migrated = createStorage(storage).read();
     expect(migrated.version).toBe(2);
     expect(migrated.users).toEqual(before.users);
     expect(migrated.wallets).toEqual(before.wallets);
@@ -265,33 +276,33 @@ describe("User-only storage migration", () => {
     expect(migrated.credentials).toEqual(before.credentials);
     expect(migrated.session).toEqual(before.session);
     expect(migrated).not.toHaveProperty("credits");
-    expect(await next.auth.getCurrentUser()).toEqual(before.session!.user);
+    expect(await next.getCurrentUser()).toEqual(before.session!.user);
     expect(JSON.parse(storage.getItem(DB_KEY)!)).toEqual(migrated);
-    const g = await next.generations.generate(request());
+    const g = await next.generate(request());
     await vi.runAllTimersAsync();
-    expect((await next.generations.findById(g.id)).status).toBe("COMPLETED");
+    expect((await next.getGeneration(g.id)).status).toBe("COMPLETED");
   });
   it("leaves legacy data intact when migration cannot be saved", () => {
     const legacy = {
-      ...new LocalDatabase(storage).read(),
+      ...createStorage(storage).read(),
       version: 1,
       credits: {},
     };
     storage.setItem(DB_KEY, JSON.stringify(legacy));
     const before = storage.getItem(DB_KEY);
     storage.blocked = true;
-    expect(() => new LocalDatabase(storage)).toThrowError(
+    expect(() => createStorage(storage)).toThrowError(
       expect.objectContaining({ code: "STORAGE" }),
     );
     expect(storage.getItem(DB_KEY)).toBe(before);
     storage.blocked = false;
-    expect(new LocalDatabase(storage).read().version).toBe(2);
+    expect(createStorage(storage).read().version).toBe(2);
   });
 });
 describe("Configuration and HTTP preparation", () => {
-  it("selects local and HTTP adapters without touching storage for HTTP", () => {
-    expect(api.auth).toBeInstanceOf(LocalAuthAdapter);
-    const storage: StoragePort = {
+  it("selects local and HTTP APIs without touching storage for HTTP", () => {
+    expect(api.demo).toBeDefined();
+    const storage: Storage = {
       getItem: () => {
         throw new Error("must not touch");
       },
@@ -299,34 +310,31 @@ describe("Configuration and HTTP preparation", () => {
         throw new Error("must not touch");
       },
     };
-    const http = createGateways({ ...local, dataSource: "http" }, storage);
-    expect(http.auth).toBeInstanceOf(HttpAuthAdapter);
+    const http = createApi({ ...local, dataSource: "http" }, storage);
     expect(http.demo).toBeUndefined();
     expect(parseConfig({}).dataSource).toBe("local");
     expect(() => parseConfig({ VITE_DATA_SOURCE: "unknown" })).toThrow();
   });
-  it("sends credentials, JSON request and decodes response", async () => {
+  it("sends credentials and JSON through the HTTP API", async () => {
+    const result = createDemoData().generations[0];
     const transport = vi
       .fn<typeof fetch>()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ id: "w", userId: "u", balance: 10 })),
-      );
-    const client = new HttpClient("http://example.com/api/", transport);
-    expect(
-      await client.request("/wallet", decoders.wallet, "POST", { hello: true }),
-    ).toEqual({ id: "w", userId: "u", balance: 10 });
+      .mockResolvedValue(new Response(JSON.stringify(result)));
+    const http = createHttpApi("http://example.com/api/", transport);
+    const input = request();
+    expect(await http.generate(input)).toEqual(result);
     expect(transport).toHaveBeenCalledWith(
-      "http://example.com/api/wallet",
+      "http://example.com/api/generations",
       expect.objectContaining({
         credentials: "include",
         method: "POST",
-        body: '{"hello":true}',
+        body: JSON.stringify(input),
       }),
     );
   });
   it("maps API errors, network failures and malformed responses", async () => {
     const transport = vi.fn<typeof fetch>();
-    const client = new HttpClient("http://example.com", transport);
+    const client = createHttpApi("http://example.com", transport);
     transport.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -335,23 +343,21 @@ describe("Configuration and HTTP preparation", () => {
         { status: 403 },
       ),
     );
-    await expect(
-      client.request("/wallet", decoders.wallet),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(client.getWallet()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
     transport.mockRejectedValueOnce(new Error("offline"));
-    await expect(
-      client.request("/wallet", decoders.wallet),
-    ).rejects.toMatchObject({ code: "NETWORK" });
+    await expect(client.getWallet()).rejects.toMatchObject({ code: "NETWORK" });
     transport.mockResolvedValueOnce(
       new Response(JSON.stringify({ balance: "bad" })),
     );
-    await expect(
-      client.request("/wallet", decoders.wallet),
-    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+    await expect(client.getWallet()).rejects.toMatchObject({
+      code: "INVALID_RESPONSE",
+    });
   });
   it("keeps unsupported schema intact", () => {
     storage.setItem(DB_KEY, '{"version":99}');
-    expect(() => new LocalDatabase(storage)).toThrow();
+    expect(() => createStorage(storage)).toThrow();
     expect(storage.getItem(DB_KEY)).toBe('{"version":99}');
   });
 });

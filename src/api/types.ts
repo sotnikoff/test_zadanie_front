@@ -68,3 +68,34 @@ export interface GenerationQuote {
   balanceAfter: number;
   canGenerate: boolean;
 }
+
+// One API for the UI. Local emulation and HTTP expose the same methods.
+export interface Api {
+  login(credentials: LoginCredentials): Promise<AuthSession>;
+  logout(): Promise<void>;
+  getCurrentUser(): Promise<User | null>;
+  getQuote(): Promise<GenerationQuote>;
+  generate(request: GeneratePoemRequest): Promise<Generation>;
+  getGeneration(id: string): Promise<Generation>;
+  getGenerations(): Promise<Generation[]>;
+  getWallet(): Promise<Wallet>;
+  getTransactions(): Promise<WalletTransaction[]>;
+  // Local test controls; no corresponding user interface or HTTP endpoints.
+  demo?: {
+    setDelay(enabled: boolean): Promise<void>;
+    failNext(): Promise<void>;
+    reset(): Promise<void>;
+  };
+  dispose(): void;
+}
+
+export interface DemoState {
+  version: 2;
+  users: User[];
+  credentials: Record<string, string>;
+  wallets: Wallet[];
+  transactions: WalletTransaction[];
+  generations: Generation[];
+  session: AuthSession | null;
+  demo: { delay: boolean; failNext: boolean };
+}

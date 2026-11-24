@@ -14,7 +14,7 @@ import {
   moods,
   type Generation,
   type WalletTransaction,
-} from "../types/models";
+} from "../../api/types";
 import { useToast } from "../../app/providers";
 export const date = (value: string) =>
   new Intl.DateTimeFormat("ru-RU", {

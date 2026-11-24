@@ -5,14 +5,14 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { Gateways } from "../composition";
-const GatewayContext = createContext<Gateways | null>(null);
+import type { Api } from "../../api/types";
+const ApiContext = createContext<Api | null>(null);
 const ToastContext = createContext<(message: string) => void>(() => {});
 export function Providers({
-  gateways,
+  api,
   children,
 }: {
-  gateways: Gateways;
+  api: Api;
   children: ReactNode;
 }) {
   const [client] = useState(
@@ -32,7 +32,7 @@ export function Providers({
     setTimer(setTimeout(() => setMessage(""), 4500));
   };
   return (
-    <GatewayContext.Provider value={gateways}>
+    <ApiContext.Provider value={api}>
       <QueryClientProvider client={client}>
         <ToastContext.Provider value={toast}>
           {children}
@@ -49,20 +49,20 @@ export function Providers({
           )}
         </ToastContext.Provider>
       </QueryClientProvider>
-    </GatewayContext.Provider>
+    </ApiContext.Provider>
   );
 }
-export function useGateways() {
-  const value = useContext(GatewayContext);
-  if (!value) throw new Error("Gateway provider missing");
+export function useApi() {
+  const value = useContext(ApiContext);
+  if (!value) throw new Error("API provider missing");
   return value;
 }
 export const useToast = () => useContext(ToastContext);
 export function useCurrentUser() {
-  const { auth } = useGateways();
+  const api = useApi();
   return useQuery({
     queryKey: ["session"],
-    queryFn: () => auth.getCurrentUser(),
+    queryFn: () => api.getCurrentUser(),
   });
 }
 export function useRefresh() {

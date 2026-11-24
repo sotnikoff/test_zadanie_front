@@ -1,32 +1,32 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCurrentUser, useGateways } from "../../../app/providers";
-import { pending } from "../../../shared/components/common";
+import { useCurrentUser, useApi } from "../app/providers";
+import { pending } from "../shared/components/common";
 export function useGenerations() {
-  const { generations } = useGateways();
+  const api = useApi();
   const { data: user } = useCurrentUser();
   return useQuery({
     queryKey: ["generations", user?.id],
-    queryFn: () => generations.findAll(),
+    queryFn: () => api.getGenerations(),
     enabled: !!user,
     refetchInterval: (query) => (query.state.data?.some(pending) ? 600 : false),
   });
 }
 export function useWallet() {
-  const { billing } = useGateways();
+  const api = useApi();
   const { data: user } = useCurrentUser();
   return useQuery({
     queryKey: ["wallet", user?.id],
-    queryFn: () => billing.getBalance(),
+    queryFn: () => api.getWallet(),
     enabled: !!user,
   });
 }
 export function useTransactions() {
-  const { billing } = useGateways();
+  const api = useApi();
   const { data: user } = useCurrentUser();
   return useQuery({
     queryKey: ["transactions", user?.id],
-    queryFn: () => billing.getTransactions(),
+    queryFn: () => api.getTransactions(),
     enabled: !!user,
   });
 }
@@ -34,11 +34,9 @@ export function useTransactions() {
 // Keep wallet/history synchronized even when the user leaves a processing detail page.
 export function useGenerationSync() {
   const generations = useGenerations();
-  useFinancialSync(
-    generations.data?.map((g) => `${g.id}:${g.status}`).join("|"),
-  );
-}
-export function useFinancialSync(revision: string | undefined) {
+  const revision = generations.data
+    ?.map((g) => `${g.id}:${g.status}`)
+    .join("|");
   const client = useQueryClient();
   useEffect(() => {
     if (revision === undefined) return;

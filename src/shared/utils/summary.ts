@@ -1,4 +1,4 @@
-import type { WalletTransaction } from "../../../shared/types/models";
+import type { WalletTransaction } from "../../api/types";
 export function summarize(transactions: WalletTransaction[]) {
   return transactions.reduce(
     (acc, t) => ({

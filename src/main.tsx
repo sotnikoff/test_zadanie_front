@@ -2,17 +2,16 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { Providers } from "./app/providers";
 import { Router } from "./app/router";
-import { createGateways } from "./app/composition";
-import { parseConfig } from "./app/config";
-import { resetBrowserDatabase } from "./shared/storage/database";
+import { createApi, parseConfig } from "./api";
+import { resetBrowserData } from "./api/storage";
 import { errorMessage } from "./shared/errors/AppError";
 import "./styles.css";
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 try {
-  const gateways = createGateways(parseConfig(import.meta.env));
+  const api = createApi(parseConfig(import.meta.env));
   root.render(
     <React.StrictMode>
-      <Providers gateways={gateways}>
+      <Providers api={api}>
         <Router />
       </Providers>
     </React.StrictMode>,
@@ -35,7 +34,7 @@ try {
               )
             ) {
               try {
-                resetBrowserDatabase();
+                resetBrowserData();
                 location.reload();
               } catch {
                 window.alert(

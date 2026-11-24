@@ -1,3 +1,8 @@
+import { createLocalApi } from "./local";
+import { createHttpApi } from "./http";
+import type { Storage } from "./storage";
+import type { Api } from "./types";
+
 export interface Config {
   dataSource: "local" | "http";
   apiBaseUrl: string;
@@ -12,4 +17,10 @@ export function parseConfig(env: Record<string, unknown>): Config {
   if (!/^https?:\/\//.test(apiBaseUrl))
     throw new Error("VITE_API_BASE_URL должен быть HTTP(S) URL.");
   return { dataSource: source, apiBaseUrl };
+}
+
+export function createApi(config: Config, storage?: Storage): Api {
+  return config.dataSource === "http"
+    ? createHttpApi(config.apiBaseUrl)
+    : createLocalApi(storage);
 }

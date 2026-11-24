@@ -2,17 +2,17 @@ import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather, ArrowRight, LockKeyhole } from "lucide-react";
-import { useCurrentUser, useGateways } from "../../../app/providers";
-import { Button } from "../../../shared/components/ui/button";
-import { ErrorState, Loading } from "../../../shared/components/common";
+import { useCurrentUser, useApi } from "../app/providers";
+import { Button } from "../shared/components/ui/button";
+import { ErrorState, Loading } from "../shared/components/common";
 export function LoginPage() {
-  const { auth, demo } = useGateways();
+  const api = useApi();
   const user = useCurrentUser();
   const client = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const login = useMutation({
-    mutationFn: () => auth.login({ email, password }),
+    mutationFn: () => api.login({ email, password }),
     onSuccess: async () => {
       client.clear();
       await client.invalidateQueries();
@@ -94,7 +94,7 @@ export function LoginPage() {
           <p className="login-note">
             Доступ по приглашению. Самостоятельная регистрация недоступна.
           </p>
-          {demo && (
+          {api.demo && (
             <div className="demo-login">
               <strong>Попробовать демо</strong>
               <p>Выберите аккаунт — пароль заполним сами.</p>

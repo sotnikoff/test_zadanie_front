@@ -1,9 +1,9 @@
-import { DecorativeIcon } from "../../../shared/components/DecorativeIcon";
+import { DecorativeIcon } from "../shared/components/DecorativeIcon";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Sparkles, ArrowDownLeft } from "lucide-react";
-import { useCurrentUser } from "../../../app/providers";
-import { useGenerations, useTransactions, useWallet } from "./hooks";
-import { summarize } from "../../billing/domain/summary";
+import { useCurrentUser } from "../app/providers";
+import { useGenerations, useTransactions, useWallet } from "../hooks/useData";
+import { summarize } from "../shared/utils/summary";
 import {
   Empty,
   ErrorState,
@@ -11,8 +11,8 @@ import {
   Heading,
   Loading,
   number,
-} from "../../../shared/components/common";
-import { Button } from "../../../shared/components/ui/button";
+} from "../shared/components/common";
+import { Button } from "../shared/components/ui/button";
 export function Dashboard() {
   const { data: user } = useCurrentUser();
   const gs = useGenerations();
