@@ -1,14 +1,12 @@
 import { DecorativeIcon } from "../shared/components/DecorativeIcon";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Feather, Sparkles, WandSparkles } from "lucide-react";
 import { useCurrentUser, useApi, useRefresh } from "../app/providers";
 import { moods, type Mood } from "../api/types";
 import {
-  Badge,
   date,
-  Empty,
   ErrorState,
   GenerationRows,
   Heading,
@@ -273,17 +271,12 @@ export function DetailPage() {
   const { id = "" } = useParams();
   const api = useApi();
   const { data: user } = useCurrentUser();
-  const refresh = useRefresh();
   const query = useQuery({
     queryKey: ["generation", user?.id, id],
     queryFn: () => api.getGeneration(id),
     refetchInterval: (q) =>
       q.state.data && pending(q.state.data) ? 500 : false,
   });
-  const status = query.data?.status;
-  useEffect(() => {
-    void refresh();
-  }, [status]);
   if (query.isPending) return <Loading />;
   if (query.error)
     return <ErrorState error={query.error} retry={() => query.refetch()} />;
