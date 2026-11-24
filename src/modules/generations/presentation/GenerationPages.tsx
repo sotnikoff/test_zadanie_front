@@ -1,3 +1,4 @@
+import { DecorativeIcon } from "../../../shared/components/DecorativeIcon";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -175,8 +176,8 @@ export function GeneratePage() {
           </div>
           {quote.data && !quote.data.canGenerate && (
             <p className="inline-error">
-              Для генерации нужно {quote.data.cost} единиц. Обратитесь к
-              администратору для пополнения.
+              Для генерации нужно {quote.data.cost} единиц. Пополнение в
+              прототипе недоступно.
             </p>
           )}
           {generate.error && <ErrorState error={generate.error} />}
@@ -195,9 +196,7 @@ export function GeneratePage() {
         </form>
         <aside className="creation-aside">
           <div className="preview-card">
-            <span className="icon-tile">
-              <Sparkles />
-            </span>
+            <DecorativeIcon name="quill" className="preview-quill" />
             <h2>
               Здесь начинается
               <br />
@@ -208,12 +207,7 @@ export function GeneratePage() {
               <br />
               Одна история, которую хочется рассказать.
             </p>
-            <div className="preview-lines">
-              <i />
-              <i />
-              <i />
-              <i />
-            </div>
+
             <span>А дальше — магия слов</span>
           </div>
           <div className="tip-card">

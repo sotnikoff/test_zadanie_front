@@ -14,12 +14,6 @@ export class LocalRuntime {
     const user = state.users.find((u) => u.id === state.session?.user.id);
     return user ?? fail("UNAUTHORIZED", "Войдите в аккаунт, чтобы продолжить.");
   }
-  admin(state: DatabaseState = this.db.read()) {
-    const user = this.user(state);
-    if (user.role !== "ADMIN")
-      fail("FORBIDDEN", "Это действие доступно только администратору.");
-    return user;
-  }
   stop() {
     this.jobs.forEach(clearTimeout);
     this.jobs.clear();

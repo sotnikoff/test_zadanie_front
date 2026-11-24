@@ -44,13 +44,7 @@ export function useFinancialSync(revision: string | undefined) {
     if (revision === undefined) return;
     void client.invalidateQueries({
       predicate: (query) =>
-        [
-          "wallet",
-          "transactions",
-          "quote",
-          "admin-users",
-          "admin-transactions",
-        ].includes(String(query.queryKey[0])),
+        ["wallet", "transactions", "quote"].includes(String(query.queryKey[0])),
     });
   }, [revision, client]);
 }

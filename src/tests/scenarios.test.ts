@@ -52,7 +52,7 @@ afterEach(() => {
 describe("Local adapter business scenarios", () => {
   it("authenticates, persists session and logs out", async () => {
     const session = await login();
-    expect(session.user.role).toBe("USER");
+    expect(session.user.email).toBe("user@example.com");
     const next = createGateways(local, storage);
     expect((await next.auth.getCurrentUser())?.id).toBe(session.user.id);
     await next.auth.logout();
@@ -162,79 +162,6 @@ describe("Local adapter business scenarios", () => {
     expect(done.userId).toBe(owner.user.id);
     expect(done.status).toBe("COMPLETED");
   });
-  it("admin creates user, normalizes email and credits exactly once", async () => {
-    await login("admin");
-    const user = await api.admin.createUser({
-      email: " New@Example.com ",
-      displayName: "Новый",
-      password: "password123",
-    });
-    expect(user.role).toBe("USER");
-    expect(
-      (await api.admin.getUsers()).find((u) => u.id === user.id)?.wallet
-        .balance,
-    ).toBe(0);
-    const req = {
-      requestId: crypto.randomUUID(),
-      userId: user.id,
-      amount: 40,
-      comment: "Для показа",
-    };
-    const a = await api.admin.creditWallet(req);
-    const b = await api.admin.creditWallet(req);
-    expect(a.id).toBe(b.id);
-    expect(a.balanceAfter).toBe(40);
-    await api.auth.login({ email: "new@example.com", password: "password123" });
-    expect((await api.billing.getBalance()).balance).toBe(40);
-  });
-  it("prevents normal users from all admin operations", async () => {
-    const u = await login();
-    const calls = [
-      api.admin.getUsers(),
-      api.admin.getGenerations(),
-      api.admin.getTransactions(),
-      api.admin.createUser({
-        email: "a@b.com",
-        displayName: "A",
-        password: "password",
-      }),
-      api.admin.creditWallet({
-        requestId: crypto.randomUUID(),
-        userId: u.user.id,
-        amount: 10,
-        comment: "test",
-      }),
-    ];
-    for (const call of calls)
-      await expect(call).rejects.toMatchObject({ code: "FORBIDDEN" });
-  });
-  it("validates integer credits, overflow, and duplicate emails", async () => {
-    await login("admin");
-    const user = (await api.admin.getUsers())[0];
-    for (const amount of [
-      -1,
-      0,
-      1.5,
-      Number.MAX_SAFE_INTEGER + 1,
-      Number.MAX_SAFE_INTEGER,
-    ]) {
-      await expect(
-        api.admin.creditWallet({
-          requestId: crypto.randomUUID(),
-          userId: user.id,
-          amount,
-          comment: "test",
-        }),
-      ).rejects.toMatchObject({ code: "VALIDATION" });
-    }
-    await expect(
-      api.admin.createUser({
-        email: "USER@example.com",
-        displayName: "X",
-        password: "password",
-      }),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
-  });
   it("recovers an interrupted job with refund after reload", async () => {
     const runtime = new LocalRuntime(new LocalDatabase(storage));
     const auth = new LocalAuthAdapter(runtime);
@@ -268,7 +195,7 @@ describe("Local adapter business scenarios", () => {
     expect(storage.getItem(DB_KEY)).toBe(raw);
     expect(await api.billing.getBalance()).toEqual(before);
   });
-  it("persists completed generations and admin changes", async () => {
+  it("persists completed generations and transactions", async () => {
     await login();
     const g = await api.generations.generate(request());
     await vi.runAllTimersAsync();
@@ -287,6 +214,78 @@ describe("Local adapter business scenarios", () => {
     expect(await api.auth.getCurrentUser()).toBeNull();
     await login();
     expect(await api.generations.findAll()).toHaveLength(3);
+  });
+});
+describe("User-only storage migration", () => {
+  it("seeds only regular accounts and exposes no administrative gateway", async () => {
+    const state = new LocalDatabase(storage).read();
+    expect(state.version).toBe(2);
+    expect(state.users.map((u) => u.email)).toEqual([
+      "user@example.com",
+      "user2@example.com",
+    ]);
+    expect(state.users.every((u) => !("role" in u))).toBe(true);
+    expect(api).not.toHaveProperty("admin");
+    expect(
+      createGateways({ ...local, dataSource: "http" }, storage),
+    ).not.toHaveProperty("admin");
+    await expect(
+      api.auth.login({ email: "admin@example.com", password: "demo1234" }),
+    ).rejects.toMatchObject({ code: "INVALID_CREDENTIALS" });
+  });
+  it("migrates legacy privileged sessions without losing any user's balance or history", async () => {
+    await login();
+    const before = new LocalDatabase(storage).read();
+    const legacy = {
+      ...before,
+      version: 1,
+      users: before.users.map((u) => ({
+        ...u,
+        role: u.id === before.session!.user.id ? "ADMIN" : "USER",
+      })),
+      session: {
+        ...before.session!,
+        user: { ...before.session!.user, role: "ADMIN" },
+      },
+      credits: {
+        "old-request": {
+          request: { amount: 50 },
+          transactionId: "old-operation",
+        },
+      },
+    };
+    storage.setItem(DB_KEY, JSON.stringify(legacy));
+    const next = createGateways(local, storage);
+    const migrated = new LocalDatabase(storage).read();
+    expect(migrated.version).toBe(2);
+    expect(migrated.users).toEqual(before.users);
+    expect(migrated.wallets).toEqual(before.wallets);
+    expect(migrated.transactions).toEqual(before.transactions);
+    expect(migrated.generations).toEqual(before.generations);
+    expect(migrated.credentials).toEqual(before.credentials);
+    expect(migrated.session).toEqual(before.session);
+    expect(migrated).not.toHaveProperty("credits");
+    expect(await next.auth.getCurrentUser()).toEqual(before.session!.user);
+    expect(JSON.parse(storage.getItem(DB_KEY)!)).toEqual(migrated);
+    const g = await next.generations.generate(request());
+    await vi.runAllTimersAsync();
+    expect((await next.generations.findById(g.id)).status).toBe("COMPLETED");
+  });
+  it("leaves legacy data intact when migration cannot be saved", () => {
+    const legacy = {
+      ...new LocalDatabase(storage).read(),
+      version: 1,
+      credits: {},
+    };
+    storage.setItem(DB_KEY, JSON.stringify(legacy));
+    const before = storage.getItem(DB_KEY);
+    storage.blocked = true;
+    expect(() => new LocalDatabase(storage)).toThrowError(
+      expect.objectContaining({ code: "STORAGE" }),
+    );
+    expect(storage.getItem(DB_KEY)).toBe(before);
+    storage.blocked = false;
+    expect(new LocalDatabase(storage).read().version).toBe(2);
   });
 });
 describe("Configuration and HTTP preparation", () => {

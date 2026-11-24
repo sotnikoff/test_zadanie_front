@@ -233,9 +233,6 @@ small {
   color: #a6a1b1;
   margin: 49px 13px 15px;
 }
-.admin-caption {
-  margin-top: 32px;
-}
 .sidebar nav {
   display: flex;
   flex-direction: column;
@@ -263,6 +260,7 @@ small {
   padding-top: 30px;
 }
 .inspiration-note {
+  margin-bottom: 18px;
   padding: 18px 15px;
   background: linear-gradient(130deg, #faf8ff, #f8f7fc);
   border: 1px solid #f0ecf9;
@@ -992,26 +990,6 @@ td small {
   line-height: 1.7;
   margin: 0 0 25px;
 }
-.user-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.user-cell strong {
-  font-weight: 500;
-  color: #73617d;
-}
-.role-badge {
-  background: #f6f2fa;
-  color: #a28eb1;
-  font-size: 10px;
-  padding: 5px 8px;
-  border-radius: 5px;
-  white-space: nowrap;
-}
-.search {
-  font-size: 11px;
-}
 .dialog-overlay {
   position: fixed;
   inset: 0;
@@ -1538,4 +1516,107 @@ td small {
 }
 .main-footer {
   color: #92879f;
+}
+
+/* Generated artwork follows the same lavender palette as the UI. */
+.hero-card {
+  background-image:
+    linear-gradient(90deg, #fffdf947, #fffdf900 70%),
+    url("/images/lavender-silk.png");
+  background-size: cover;
+  background-position: center;
+}
+.hero-copy h2 {
+  color: #49345f;
+}
+.hero-copy p {
+  color: #80658e;
+}
+.hero-copy small {
+  color: #8d749c;
+}
+.icon-illustration {
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.hero-art .hero-quill {
+  width: clamp(170px, 20vw, 235px);
+  height: auto;
+  transform: rotate(-9deg);
+  filter: drop-shadow(0 15px 18px #76558f15);
+}
+.stat {
+  position: relative;
+}
+.stat-icon:has(.icon-illustration) {
+  position: absolute;
+  top: 13px;
+  right: 15px;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  background: transparent;
+}
+.stat-icon .icon-illustration {
+  width: 100%;
+  height: 100%;
+}
+.stat:has(.icon-illustration) .stat-top {
+  min-height: 27px;
+  padding-right: 45px;
+}
+.login-story {
+  background-image:
+    linear-gradient(180deg, #faf7fce6, #faf7fc94 65%, #faf7fc29),
+    url("/images/lavender-petals.png");
+  background-size: cover;
+  background-position: 72% center;
+}
+.login-story h1 {
+  color: #644478;
+}
+.login-story p {
+  color: #8b6d9d;
+}
+.login-verse {
+  color: #9573a5;
+}
+.preview-card {
+  background-image:
+    linear-gradient(180deg, #fffdf9b8, #fffdf961),
+    url("/images/lavender-petals.png");
+  background-size: cover;
+  background-position: 68% center;
+}
+.preview-quill {
+  width: 96px;
+  height: 96px;
+}
+.preview-card h2 {
+  color: #735080;
+  margin-top: 16px;
+}
+.preview-card p {
+  color: #8e6e9c;
+}
+.preview-card > span:last-child {
+  color: #9b7baa;
+}
+@media (max-width: 800px) {
+  .stat:has(.icon-illustration) .stat-top {
+    padding-right: 0;
+  }
+}
+@media (max-width: 520px) {
+  .hero-card {
+    background-position: 63% center;
+  }
+  .hero-copy {
+    background: linear-gradient(90deg, #fffdf987, #fffdf900);
+    width: 100%;
+  }
+  .stat:has(.icon-illustration) .stat-top {
+    min-height: 0;
+  }
 }

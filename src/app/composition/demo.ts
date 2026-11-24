@@ -27,11 +27,7 @@ export class LocalDemoAdapter implements DemoGateway {
     this.runtime.db.reset();
   }
   async switchAccount(email: string) {
-    if (
-      !["admin@example.com", "user@example.com", "user2@example.com"].includes(
-        email,
-      )
-    )
+    if (!["user@example.com", "user2@example.com"].includes(email))
       throw new Error("Неизвестный демо-аккаунт");
     await new LocalAuthAdapter(this.runtime).login({
       email,

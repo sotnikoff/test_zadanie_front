@@ -1,4 +1,5 @@
-import { Wallet, ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { DecorativeIcon } from "../../../shared/components/DecorativeIcon";
+import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import {
   useTransactions,
   useWallet,
@@ -35,7 +36,7 @@ export function BillingPage() {
       />
       <div className="stats">
         <Stat
-          icon={<Wallet />}
+          icon={<DecorativeIcon name="credits" />}
           title="Доступно сейчас"
           value={`${number(wallet.data.balance)} ед.`}
           note="Одна генерация — 10 единиц"
@@ -54,8 +55,8 @@ export function BillingPage() {
         />
       </div>
       <div className="balance-note">
-        Для пополнения баланса обратитесь к администратору. Внутренние единицы
-        не являются реальными деньгами.
+        Пополнение баланса в прототипе недоступно. Внутренние единицы не
+        являются реальными деньгами.
       </div>
       <section className="card">
         <div className="section-heading">

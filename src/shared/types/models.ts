@@ -1,9 +1,7 @@
-export type Role = "USER" | "ADMIN";
 export interface User {
   id: string;
   email: string;
   displayName: string;
-  role: Role;
   createdAt: string;
 }
 export interface Wallet {
@@ -33,7 +31,10 @@ export const moods = {
 } as const;
 export type Mood = keyof typeof moods;
 export type GenerationStatus =
-  "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  | "PENDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED";
 export interface GeneratePoemRequest {
   requestId: string;
   topic: string;
@@ -60,18 +61,6 @@ export interface AuthSession {
 export interface LoginCredentials {
   email: string;
   password: string;
-}
-export interface CreateUserRequest extends LoginCredentials {
-  displayName: string;
-}
-export interface CreditWalletRequest {
-  requestId: string;
-  userId: string;
-  amount: number;
-  comment: string;
-}
-export interface UserWithWallet extends User {
-  wallet: Wallet;
 }
 export interface GenerationQuote {
   cost: number;

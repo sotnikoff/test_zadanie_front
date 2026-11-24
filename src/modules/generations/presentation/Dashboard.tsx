@@ -1,11 +1,6 @@
+import { DecorativeIcon } from "../../../shared/components/DecorativeIcon";
 import { Link } from "react-router-dom";
-import {
-  ArrowUpRight,
-  Sparkles,
-  Wallet,
-  Feather,
-  ArrowDownLeft,
-} from "lucide-react";
+import { ArrowUpRight, Sparkles, ArrowDownLeft } from "lucide-react";
 import { useCurrentUser } from "../../../app/providers";
 import { useGenerations, useTransactions, useWallet } from "./hooks";
 import { summarize } from "../../billing/domain/summary";
@@ -66,30 +61,18 @@ export function Dashboard() {
           <small>Одна идея · несколько строк · 10 единиц</small>
         </div>
         <div className="hero-art" aria-hidden="true">
-          <span className="orbit one" />
-          <span className="orbit two" />
-          <span className="art-star">✦</span>
-          <div className="paper">
-            <Feather size={28} />
-            <span>Между строк</span>
-            <i />
-            <i />
-            <i />
-            <i />
-            <em>рождается вдохновение</em>
-          </div>
-          <span className="art-star lower">✧</span>
+          <DecorativeIcon name="quill" className="hero-quill" />
         </div>
       </section>
       <div className="stats">
         <Stat
-          icon={<Wallet />}
+          icon={<DecorativeIcon name="credits" />}
           title="Доступный баланс"
           value={`${number(wallet.data.balance)} ед.`}
           note="Для новых идей и вдохновения"
         />
         <Stat
-          icon={<Feather />}
+          icon={<DecorativeIcon name="quill" />}
           title="Создано стихотворений"
           value={String(gs.data.filter((g) => g.status === "COMPLETED").length)}
           note="Каждое начинается с вашей идеи"

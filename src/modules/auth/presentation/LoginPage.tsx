@@ -92,15 +92,14 @@ export function LoginPage() {
             <ArrowRight size={17} />
           </Button>
           <p className="login-note">
-            Доступ по приглашению. Для получения аккаунта обратитесь к
-            администратору.
+            Доступ по приглашению. Самостоятельная регистрация недоступна.
           </p>
           {demo && (
             <div className="demo-login">
               <strong>Попробовать демо</strong>
               <p>Выберите аккаунт — пароль заполним сами.</p>
               <div className="demo-accounts">
-                {["user", "user2", "admin"].map((name, i) => (
+                {["user", "user2"].map((name, i) => (
                   <Button
                     type="button"
                     key={name}
@@ -110,7 +109,7 @@ export function LoginPage() {
                       setPassword("demo1234");
                     }}
                   >
-                    {["Анна", "Михаил", "Администратор"][i]}
+                    {["Анна", "Михаил"][i]}
                   </Button>
                 ))}
               </div>

@@ -1,15 +1,7 @@
 import type {
-  User,
-  AuthSession,
-  LoginCredentials,
+  Generation,
   GenerationQuote,
   GeneratePoemRequest,
-  Generation,
-  Wallet,
-  WalletTransaction,
-  UserWithWallet,
-  CreateUserRequest,
-  CreditWalletRequest,
 } from "../../../../shared/types/models";
 export interface GenerationGateway {
   getQuote(): Promise<GenerationQuote>;

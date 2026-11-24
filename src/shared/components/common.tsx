@@ -130,17 +130,7 @@ export function CopyButton({ text }: { text: string }) {
     </Button>
   );
 }
-export function GenerationRows({
-  items,
-  admin = false,
-  onSelect,
-  names,
-}: {
-  items: Generation[];
-  admin?: boolean;
-  onSelect?: (g: Generation) => void;
-  names?: Record<string, string>;
-}) {
+export function GenerationRows({ items }: { items: Generation[] }) {
   if (!items.length) return <Empty />;
   return (
     <div className="generation-list">
@@ -150,29 +140,20 @@ export function GenerationRows({
             <Feather size={19} />
           </span>
           <div className="generation-title">
-            {admin ? (
-              <button className="text-link" onClick={() => onSelect?.(g)}>
-                {g.topic}
-              </button>
-            ) : (
-              <Link to={`/history/${g.id}`}>{g.topic}</Link>
-            )}
+            <Link to={`/history/${g.id}`}>{g.topic}</Link>
             <span>
-              {names?.[g.userId] ? `${names[g.userId]} · ` : ""}
               {moods[g.mood]} · {g.stanzaCount} четв. · {date(g.createdAt)}
             </span>
           </div>
           <Badge status={g.status} />
           <span className="row-cost">{g.cost} ед.</span>
-          {!admin && (
-            <Link
-              className="arrow-link"
-              aria-label={`Открыть ${g.topic}`}
-              to={`/history/${g.id}`}
-            >
-              <ArrowRight size={18} />
-            </Link>
-          )}
+          <Link
+            className="arrow-link"
+            aria-label={`Открыть ${g.topic}`}
+            to={`/history/${g.id}`}
+          >
+            <ArrowRight size={18} />
+          </Link>
         </div>
       ))}
     </div>
@@ -208,17 +189,7 @@ export function Poem({ generation }: { generation: Generation }) {
     </>
   );
 }
-export function Transactions({
-  items,
-  names,
-  admin = false,
-  onGeneration,
-}: {
-  items: WalletTransaction[];
-  names?: Record<string, string>;
-  admin?: boolean;
-  onGeneration?: (id: string) => void;
-}) {
+export function Transactions({ items }: { items: WalletTransaction[] }) {
   if (!items.length)
     return (
       <Empty
@@ -232,7 +203,6 @@ export function Transactions({
         <thead>
           <tr>
             <th>Операция / дата</th>
-            {names && <th>Пользователь</th>}
             <th>Описание</th>
             <th>Сумма</th>
             <th>Баланс после</th>
@@ -253,25 +223,16 @@ export function Transactions({
                 </span>
                 <small>{date(t.createdAt)}</small>
               </td>
-              {names && <td>{names[t.userId]}</td>}
               <td>
                 {t.description}
-                {t.generationId &&
-                  (admin ? (
-                    <button
-                      className="text-link block"
-                      onClick={() => onGeneration?.(t.generationId!)}
-                    >
-                      Посмотреть генерацию ↗
-                    </button>
-                  ) : (
-                    <Link
-                      className="text-link block"
-                      to={`/history/${t.generationId}`}
-                    >
-                      Посмотреть генерацию ↗
-                    </Link>
-                  ))}
+                {t.generationId && (
+                  <Link
+                    className="text-link block"
+                    to={`/history/${t.generationId}`}
+                  >
+                    Посмотреть генерацию ↗
+                  </Link>
+                )}
               </td>
               <td className={t.amount > 0 ? "positive nowrap" : "nowrap"}>
                 {t.amount > 0 ? "+" : ""}

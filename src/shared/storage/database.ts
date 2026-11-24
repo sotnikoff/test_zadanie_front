@@ -1,6 +1,5 @@
 import type {
   AuthSession,
-  CreditWalletRequest,
   Generation,
   User,
   Wallet,
@@ -13,17 +12,13 @@ export interface StoragePort {
   setItem(key: string, value: string): void;
 }
 export interface DatabaseState {
-  version: 1;
+  version: 2;
   users: User[];
   credentials: Record<string, string>;
   wallets: Wallet[];
   transactions: WalletTransaction[];
   generations: Generation[];
   session: AuthSession | null;
-  credits: Record<
-    string,
-    { request: CreditWalletRequest; transactionId: string }
-  >;
   demo: { delay: boolean; failNext: boolean };
 }
 export const DB_KEY = "mini-kadrika:db";
@@ -52,7 +47,7 @@ export function transact(
   if (next < 0)
     fail(
       "INSUFFICIENT_BALANCE",
-      "Недостаточно единиц. Обратитесь к администратору для пополнения.",
+      "Недостаточно единиц. Пополнение в прототипе недоступно.",
     );
   wallet.balance = next;
   const tx: WalletTransaction = {
@@ -95,27 +90,24 @@ export function compensate(
 }
 export function seed(): DatabaseState {
   const state: DatabaseState = {
-    version: 1,
+    version: 2,
     users: [],
     credentials: {},
     wallets: [],
     transactions: [],
     generations: [],
     session: null,
-    credits: {},
     demo: { delay: true, failNext: false },
   };
   const ai = new MockAIProvider();
   [
-    ["admin@example.com", "Александра", "ADMIN"],
-    ["user@example.com", "Анна", "USER"],
-    ["user2@example.com", "Михаил", "USER"],
-  ].forEach(([email, displayName, role], index) => {
+    ["user@example.com", "Анна"],
+    ["user2@example.com", "Михаил"],
+  ].forEach(([email, displayName], index) => {
     const user: User = {
       id: uid(),
       email,
       displayName,
-      role: role as User["role"],
       createdAt: now(),
     };
     state.users.push(user);
@@ -125,11 +117,11 @@ export function seed(): DatabaseState {
       state,
       user.id,
       "CREDIT",
-      index === 2 ? 20 : 150,
+      index === 1 ? 20 : 150,
       "Приветственные единицы",
     );
     const topics =
-      index === 2
+      index === 1
         ? ["Дорога домой"]
         : ["Утро в большом городе", "Тёплые воспоминания", "Разговор с осенью"];
     topics.forEach((topic, i) => {
@@ -186,22 +178,41 @@ export class LocalDatabase {
         this.state = seed();
         this.persist(this.state);
       } else {
-        const parsed = JSON.parse(raw) as DatabaseState;
+        const parsed = JSON.parse(raw) as Omit<DatabaseState, "version"> & {
+          version: number;
+        };
         if (
-          parsed.version !== 1 ||
+          (parsed.version !== 1 && parsed.version !== 2) ||
           !Array.isArray(parsed.users) ||
           !Array.isArray(parsed.generations) ||
           !Array.isArray(parsed.wallets) ||
           !Array.isArray(parsed.transactions) ||
           !parsed.demo ||
-          !parsed.credentials ||
-          !parsed.credits
+          !parsed.credentials
         )
           fail(
             "STORAGE_SCHEMA",
             "Демо-данные несовместимы или повреждены. Сбросьте их на экране восстановления.",
           );
-        this.state = parsed;
+        const normalizeUser = (user: User): User => ({
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          createdAt: user.createdAt,
+        });
+        this.state = {
+          version: 2,
+          users: parsed.users.map(normalizeUser),
+          credentials: parsed.credentials,
+          wallets: parsed.wallets,
+          transactions: parsed.transactions,
+          generations: parsed.generations,
+          session: parsed.session
+            ? { ...parsed.session, user: normalizeUser(parsed.session.user) }
+            : null,
+          demo: parsed.demo,
+        };
+        if (parsed.version === 1) this.persist(this.state);
       }
     } catch (error) {
       if (error instanceof AppError) throw error;

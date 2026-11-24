@@ -3,7 +3,6 @@ import type {
   Generation,
   GenerationQuote,
   User,
-  UserWithWallet,
   Wallet,
   WalletTransaction,
 } from "../types/models";
@@ -15,16 +14,12 @@ const integer = (v: unknown) =>
   typeof v === "number" && Number.isSafeInteger(v);
 const nullable = (v: unknown) => v === null || typeof v === "string";
 const userCheck = (v: Record<string, unknown>) =>
-  strings(v, ["id", "email", "displayName", "createdAt"]) &&
-  ["USER", "ADMIN"].includes(String(v.role));
+  strings(v, ["id", "email", "displayName", "createdAt"]);
 const walletCheck = (v: Record<string, unknown>) =>
   strings(v, ["id", "userId"]) && integer(v.balance) && Number(v.balance) >= 0;
 export const user = objectDecoder<User>(userCheck);
 export const currentUser = (v: unknown) => (v === null ? null : user(v));
 export const wallet = objectDecoder<Wallet>(walletCheck);
-export const userWithWallet = objectDecoder<UserWithWallet>(
-  (v) => userCheck(v) && isObject(v.wallet) && walletCheck(v.wallet),
-);
 export const session = objectDecoder<AuthSession>(
   (v) =>
     strings(v, ["sessionId", "createdAt"]) &&

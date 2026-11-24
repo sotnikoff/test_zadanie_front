@@ -1,11 +1,6 @@
 import type { AuthGateway } from "../../application/ports";
-import type {
-  LoginCredentials,
-  GeneratePoemRequest,
-  CreateUserRequest,
-  CreditWalletRequest,
-} from "../../../../shared/types/models";
-import { HttpClient, list, empty } from "../../../../shared/api/client";
+import type { LoginCredentials } from "../../../../shared/types/models";
+import { HttpClient, empty } from "../../../../shared/api/client";
 import * as d from "../../../../shared/api/decoders";
 export class HttpAuthAdapter implements AuthGateway {
   constructor(private client: HttpClient) {}
