@@ -1,5 +1,5 @@
 import { AppError, fail } from "../shared/errors/AppError";
-import { createDemoData } from "./demo-data";
+import { addZeroBalanceUser, createDemoData } from "./demo-data";
 import type { DemoState, User } from "./types";
 
 export const DB_KEY = "mini-kadrika:db";
@@ -60,7 +60,8 @@ export function createStorage(storage: Storage) {
           : null,
         demo: { failNext: parsed.demo.failNext },
       };
-      if (parsed.version === 1 || "delay" in parsed.demo) save(state);
+      const addedUser = addZeroBalanceUser(state);
+      if (addedUser || parsed.version === 1 || "delay" in parsed.demo) save(state);
     }
   } catch (error) {
     if (error instanceof AppError) throw error;

@@ -39,6 +39,21 @@ export function makePoem(request: GeneratePoemRequest): string {
     .join("\n\n");
 }
 
+// Also used when loading existing demo data, without resetting other accounts.
+export function addZeroBalanceUser(state: DemoState): boolean {
+  if (state.users.some((user) => user.email === "user3@example.com")) return false;
+  const user = {
+    id: crypto.randomUUID(),
+    email: "user3@example.com",
+    displayName: "Алексей",
+    createdAt: new Date().toISOString(),
+  };
+  state.users.push(user);
+  state.credentials[user.id] = "demo1234";
+  state.wallets.push({ id: crypto.randomUUID(), userId: user.id, balance: 0 });
+  return true;
+}
+
 export function createDemoData(): DemoState {
   const state: DemoState = {
     version: 2,
@@ -147,5 +162,6 @@ export function createDemoData(): DemoState {
         );
     });
   }
+  addZeroBalanceUser(state);
   return state;
 }

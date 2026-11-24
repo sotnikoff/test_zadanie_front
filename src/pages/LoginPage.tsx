@@ -99,7 +99,11 @@ export function LoginPage() {
               <strong>Попробовать демо</strong>
               <p>Выберите аккаунт — пароль заполним сами.</p>
               <div className="demo-accounts">
-                {["user", "user2"].map((name, i) => (
+                {[
+                  ["user", "Анна"],
+                  ["user2", "Михаил"],
+                  ["user3", "Алексей · 0 ед."],
+                ].map(([name, label]) => (
                   <Button
                     type="button"
                     key={name}
@@ -109,7 +113,7 @@ export function LoginPage() {
                       setPassword("demo1234");
                     }}
                   >
-                    {["Анна", "Михаил"][i]}
+                    {label}
                   </Button>
                 ))}
               </div>

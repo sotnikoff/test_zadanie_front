@@ -36,6 +36,18 @@ beforeEach(() => {
   api = createApi(local, storage);
 });
 describe("Local API business scenarios", () => {
+  it("authenticates the zero-balance account and refuses generation without changes", async () => {
+    await login("user3");
+    expect((await api.getWallet()).balance).toBe(0);
+    expect((await api.getQuote()).canGenerate).toBe(false);
+    expect(await api.getTransactions()).toEqual([]);
+    expect(await api.getGenerations()).toEqual([]);
+    const before = storage.getItem(DB_KEY);
+    await expect(api.generate(request())).rejects.toMatchObject({
+      code: "INSUFFICIENT_BALANCE",
+    });
+    expect(storage.getItem(DB_KEY)).toBe(before);
+  });
   it("authenticates, persists session and logs out", async () => {
     const session = await login();
     expect(session.user.email).toBe("user@example.com");
@@ -227,6 +239,30 @@ describe("Local API business scenarios", () => {
   });
 });
 describe("User-only storage migration", () => {
+  it("adds the zero-balance account to existing data once without resetting other users", async () => {
+    await login();
+    await api.generate(request());
+    const store = createStorage(storage);
+    const before = store.read();
+    const testUser = before.users.find((user) => user.email === "user3@example.com")!;
+    before.users = before.users.filter((user) => user.id !== testUser.id);
+    before.wallets = before.wallets.filter((wallet) => wallet.userId !== testUser.id);
+    delete before.credentials[testUser.id];
+    store.save(before);
+
+    const migrated = createStorage(storage).read();
+    const added = migrated.users.find((user) => user.email === "user3@example.com")!;
+    expect(migrated.users).toEqual([...before.users, added]);
+    expect(migrated.wallets.filter((wallet) => wallet.userId !== added.id)).toEqual(before.wallets);
+    expect(migrated.transactions).toEqual(before.transactions);
+    expect(migrated.generations).toEqual(before.generations);
+    expect(migrated.session).toEqual(before.session);
+    expect(migrated.credentials).toEqual({ ...before.credentials, [added.id]: "demo1234" });
+    expect(createStorage(storage).read()).toEqual(migrated);
+    api = createApi(local, storage);
+    await login("user3");
+    expect((await api.getWallet()).balance).toBe(0);
+  });
   it("removes the old delay setting while preserving saved data", async () => {
     await login();
     const before = createStorage(storage).read();
@@ -247,6 +283,7 @@ describe("User-only storage migration", () => {
     expect(state.users.map((u) => u.email)).toEqual([
       "user@example.com",
       "user2@example.com",
+      "user3@example.com",
     ]);
     expect(state.users.every((u) => !("role" in u))).toBe(true);
     expect(api).not.toHaveProperty("admin");
