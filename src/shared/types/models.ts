@@ -1,0 +1,81 @@
+export type Role = "USER" | "ADMIN";
+export interface User {
+  id: string;
+  email: string;
+  displayName: string;
+  role: Role;
+  createdAt: string;
+}
+export interface Wallet {
+  id: string;
+  userId: string;
+  balance: number;
+}
+export type TransactionType = "CREDIT" | "DEBIT" | "REFUND";
+export interface WalletTransaction {
+  id: string;
+  walletId: string;
+  userId: string;
+  generationId?: string;
+  type: TransactionType;
+  amount: number;
+  balanceAfter: number;
+  description: string;
+  createdAt: string;
+}
+export const moods = {
+  neutral: "Нейтральное",
+  romantic: "Романтическое",
+  cheerful: "Весёлое",
+  sad: "Грустное",
+  philosophical: "Философское",
+  dark: "Мрачное",
+} as const;
+export type Mood = keyof typeof moods;
+export type GenerationStatus =
+  "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+export interface GeneratePoemRequest {
+  requestId: string;
+  topic: string;
+  instructions: string;
+  mood: Mood;
+  stanzaCount: number;
+}
+export interface Generation extends GeneratePoemRequest {
+  id: string;
+  userId: string;
+  result: string | null;
+  status: GenerationStatus;
+  cost: number;
+  errorMessage: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+export interface AuthSession {
+  user: User;
+  sessionId: string;
+  createdAt: string;
+}
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+export interface CreateUserRequest extends LoginCredentials {
+  displayName: string;
+}
+export interface CreditWalletRequest {
+  requestId: string;
+  userId: string;
+  amount: number;
+  comment: string;
+}
+export interface UserWithWallet extends User {
+  wallet: Wallet;
+}
+export interface GenerationQuote {
+  cost: number;
+  balance: number;
+  balanceAfter: number;
+  canGenerate: boolean;
+}
