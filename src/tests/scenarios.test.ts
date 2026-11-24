@@ -231,11 +231,26 @@ describe("Local API business scenarios", () => {
   });
   it("resets demo data", async () => {
     await login();
+    const generation = await api.generate(request());
+    await login("user2");
     await api.generate(request());
     await api.demo!.reset();
+    api = createApi(local, storage);
     expect(await api.getCurrentUser()).toBeNull();
     await login();
+    expect((await api.getWallet()).balance).toBe(130);
     expect(await api.getGenerations()).toHaveLength(3);
+    expect(await api.getTransactions()).toHaveLength(5);
+    await expect(api.getGeneration(generation.id)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await login("user2");
+    expect((await api.getWallet()).balance).toBe(10);
+    expect(await api.getGenerations()).toHaveLength(1);
+    await login("user3");
+    expect((await api.getWallet()).balance).toBe(0);
+    expect(await api.getGenerations()).toEqual([]);
+    expect(await api.getTransactions()).toEqual([]);
   });
 });
 describe("User-only storage migration", () => {

@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Feather, ArrowRight, LockKeyhole } from "lucide-react";
-import { useCurrentUser, useApi } from "../app/providers";
+import { Feather, ArrowRight, LockKeyhole, RotateCcw } from "lucide-react";
+import { useCurrentUser, useApi, useToast } from "../app/providers";
 import { Button } from "../shared/components/ui/button";
 import { ErrorState, Loading } from "../shared/components/common";
 export function LoginPage() {
   const api = useApi();
   const user = useCurrentUser();
   const client = useQueryClient();
+  const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const login = useMutation({
@@ -16,6 +17,17 @@ export function LoginPage() {
     onSuccess: async () => {
       client.clear();
       await client.invalidateQueries();
+    },
+  });
+  const resetDemo = useMutation({
+    mutationFn: () => api.demo!.reset(),
+    onSuccess: async () => {
+      setEmail("");
+      setPassword("");
+      login.reset();
+      client.clear();
+      await client.invalidateQueries();
+      toast("Демо-данные сброшены. Начальные балансы и история восстановлены.");
     },
   });
   if (user.isPending) return <Loading />;
@@ -53,7 +65,7 @@ export function LoginPage() {
         <form
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
-            if (!login.isPending) login.mutate();
+            if (!login.isPending && !resetDemo.isPending) login.mutate();
           }}
         >
           <span className="icon-tile">
@@ -87,7 +99,7 @@ export function LoginPage() {
           {user.isError && (
             <ErrorState error={user.error} retry={() => user.refetch()} />
           )}
-          <Button className="w-full" disabled={login.isPending}>
+          <Button className="w-full" disabled={login.isPending || resetDemo.isPending}>
             {login.isPending ? "Входим…" : "Войти"}
             <ArrowRight size={17} />
           </Button>
@@ -117,6 +129,21 @@ export function LoginPage() {
                   </Button>
                 ))}
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mb-3"
+                disabled={resetDemo.isPending || login.isPending}
+                onClick={() => {
+                  if (window.confirm(
+                    "Сбросить демо-данные? Созданные стихотворения и изменения балансов будут удалены. Начальные данные восстановятся.",
+                  )) resetDemo.mutate();
+                }}
+              >
+                <RotateCcw size={15} />
+                {resetDemo.isPending ? "Сбрасываем…" : "Сбросить демо-данные"}
+              </Button>
+              {resetDemo.isError && <ErrorState error={resetDemo.error} />}
               <small>Демонстрация · без реального AI и платежей</small>
             </div>
           )}
