@@ -78,7 +78,6 @@ export function createHttpApi(
     getGenerations: () => request("/generations", list(generation)),
     getWallet: () => request("/billing/wallet", wallet),
     getTransactions: () => request("/billing/transactions", list(transaction)),
-    dispose() {},
   };
 }
 const isObject = (value: unknown): value is Record<string, unknown> =>

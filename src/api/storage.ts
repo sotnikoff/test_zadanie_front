@@ -58,9 +58,9 @@ export function createStorage(storage: Storage) {
         session: parsed.session
           ? { ...parsed.session, user: user(parsed.session.user) }
           : null,
-        demo: parsed.demo,
+        demo: { failNext: parsed.demo.failNext },
       };
-      if (parsed.version === 1) save(state);
+      if (parsed.version === 1 || "delay" in parsed.demo) save(state);
     }
   } catch (error) {
     if (error instanceof AppError) throw error;

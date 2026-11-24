@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApi, parseConfig } from "../api";
 import type { Api } from "../api/types";
 import { createStorage, DB_KEY, type Storage } from "../api/storage";
@@ -31,15 +31,9 @@ let api: Api;
 async function login(name = "user") {
   return api.login({ email: `${name}@example.com`, password: "demo1234" });
 }
-beforeEach(async () => {
-  vi.useFakeTimers();
+beforeEach(() => {
   storage = new MemoryStorage();
   api = createApi(local, storage);
-  await api.demo!.setDelay(false);
-});
-afterEach(() => {
-  vi.clearAllTimers();
-  vi.useRealTimers();
 });
 describe("Local API business scenarios", () => {
   it("authenticates, persists session and logs out", async () => {
@@ -58,17 +52,14 @@ describe("Local API business scenarios", () => {
       code: "UNAUTHORIZED",
     });
   });
-  it("creates, debits once, processes and completes correct stanza count", async () => {
+  it("returns a completed poem and debits once in the same call", async () => {
     await login();
     const before = await api.getWallet();
     const g = await api.generate(request());
-    expect(g.status).toBe("PENDING");
+    expect(g.status).toBe("COMPLETED");
     expect((await api.getWallet()).balance).toBe(before.balance - 10);
-    await vi.advanceTimersByTimeAsync(0);
-    expect((await api.getGeneration(g.id)).status).toBe("PROCESSING");
-    await vi.runAllTimersAsync();
     const done = await api.getGeneration(g.id);
-    expect(done.status).toBe("COMPLETED");
+    expect(done).toEqual(g);
     expect(done.result!.split("\n\n")).toHaveLength(2);
     expect(
       done.result!.split("\n\n").every((s) => s.split("\n").length === 4),
@@ -93,7 +84,7 @@ describe("Local API business scenarios", () => {
     await api.demo!.failNext();
     const input = request();
     const g = await api.generate(input);
-    await vi.runAllTimersAsync();
+    expect(g.status).toBe("FAILED");
     expect((await api.getGeneration(g.id)).status).toBe("FAILED");
     expect((await api.getWallet()).balance).toBe(before);
     await api.generate(input);
@@ -138,31 +129,41 @@ describe("Local API business scenarios", () => {
       code: "NOT_FOUND",
     });
   });
-  it("keeps in-flight work assigned to its original user", async () => {
+  it("keeps an accepted generation assigned to its original user", async () => {
     const owner = await login();
-    const g = await api.generate(request());
+    const result = api.generate(request());
     await login("user2");
-    await vi.runAllTimersAsync();
+    const g = await result;
     await login();
     const done = await api.getGeneration(g.id);
     expect(done.userId).toBe(owner.user.id);
     expect(done.status).toBe("COMPLETED");
   });
-  it("recovers an interrupted job with refund after reload", async () => {
-    await login();
-    const before = (await api.getWallet()).balance;
-    const g = await api.generate(request());
-    await vi.advanceTimersByTimeAsync(0);
-    api.dispose(); // The old page's timers disappear on reload.
-    const next = createApi(local, storage);
-    expect((await next.getGeneration(g.id)).status).toBe("FAILED");
-    expect((await next.getWallet()).balance).toBe(before);
-    expect(
-      (await next.getTransactions()).filter(
-        (t) => t.generationId === g.id && t.type === "REFUND",
-      ),
-    ).toHaveLength(1);
-  });
+  it.each(["PENDING", "PROCESSING"] as const)(
+    "refunds a legacy %s generation once on startup",
+    async (status) => {
+      await login();
+      const before = (await api.getWallet()).balance;
+      const g = await api.generate(request());
+      const store = createStorage(storage);
+      const legacy = store.read();
+      const unfinished = legacy.generations.find((item) => item.id === g.id)!;
+      unfinished.status = status;
+      unfinished.result = null;
+      unfinished.completedAt = null;
+      unfinished.startedAt = status === "PENDING" ? null : g.startedAt;
+      store.save(legacy);
+      createApi(local, storage);
+      const next = createApi(local, storage);
+      expect((await next.getGeneration(g.id)).status).toBe("FAILED");
+      expect((await next.getWallet()).balance).toBe(before);
+      expect(
+        (await next.getTransactions()).filter(
+          (t) => t.generationId === g.id && t.type === "REFUND",
+        ),
+      ).toHaveLength(1);
+    },
+  );
   it("does not change balance in memory or storage if writing fails", async () => {
     await login();
     const before = await api.getWallet();
@@ -186,19 +187,20 @@ describe("Local API business scenarios", () => {
     generation.cost = 0;
     expect((await api.getGeneration(generation.id)).cost).toBe(10);
   });
-  it("reports a failed background save and recovers it after reload", async () => {
+  it("keeps a failed generation and its refund together when saving fails", async () => {
     await login();
     const balance = (await api.getWallet()).balance;
-    const generation = await api.generate(request());
-    await vi.advanceTimersByTimeAsync(0);
+    await api.demo!.failNext();
+    const input = request();
+    const before = storage.getItem(DB_KEY);
     storage.blocked = true;
-    await vi.runAllTimersAsync();
-    await expect(api.getGeneration(generation.id)).rejects.toMatchObject({
+    await expect(api.generate(input)).rejects.toMatchObject({
       code: "STORAGE",
     });
-    expect((await api.getWallet()).balance).toBe(balance - 10);
-    api.dispose();
+    expect(storage.getItem(DB_KEY)).toBe(before);
+    expect((await api.getWallet()).balance).toBe(balance);
     storage.blocked = false;
+    const generation = await api.generate(input);
     const reloaded = createApi(local, storage);
     expect((await reloaded.getGeneration(generation.id)).status).toBe("FAILED");
     expect((await reloaded.getWallet()).balance).toBe(balance);
@@ -211,23 +213,34 @@ describe("Local API business scenarios", () => {
   it("persists completed generations and transactions", async () => {
     await login();
     const g = await api.generate(request());
-    await vi.runAllTimersAsync();
     const next = createApi(local, storage);
     expect((await next.getGeneration(g.id)).status).toBe("COMPLETED");
     expect(await next.getTransactions()).toEqual(await api.getTransactions());
   });
-  it("resets demo data and cancels active jobs", async () => {
+  it("resets demo data", async () => {
     await login();
     await api.generate(request());
     await api.demo!.reset();
-    await vi.runAllTimersAsync();
-    await api.demo!.setDelay(false);
     expect(await api.getCurrentUser()).toBeNull();
     await login();
     expect(await api.getGenerations()).toHaveLength(3);
   });
 });
 describe("User-only storage migration", () => {
+  it("removes the old delay setting while preserving saved data", async () => {
+    await login();
+    const before = createStorage(storage).read();
+    storage.setItem(
+      DB_KEY,
+      JSON.stringify({
+        ...before,
+        demo: { ...before.demo, delay: true },
+      }),
+    );
+    const next = createApi(local, storage);
+    expect(JSON.parse(storage.getItem(DB_KEY)!)).toEqual(before);
+    expect((await next.generate(request())).status).toBe("COMPLETED");
+  });
   it("seeds only regular accounts and exposes no administrative gateway", async () => {
     const state = createStorage(storage).read();
     expect(state.version).toBe(2);
@@ -279,7 +292,6 @@ describe("User-only storage migration", () => {
     expect(await next.getCurrentUser()).toEqual(before.session!.user);
     expect(JSON.parse(storage.getItem(DB_KEY)!)).toEqual(migrated);
     const g = await next.generate(request());
-    await vi.runAllTimersAsync();
     expect((await next.getGeneration(g.id)).status).toBe("COMPLETED");
   });
   it("leaves legacy data intact when migration cannot be saved", () => {

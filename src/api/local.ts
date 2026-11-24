@@ -15,12 +15,6 @@ const now = () => new Date().toISOString();
 // All local actions are here: read a snapshot, change it, then save once.
 export function createLocalApi(storage: Storage = window.localStorage): Api {
   const store = createStorage(storage);
-  const timers = new Set<ReturnType<typeof setTimeout>>();
-  let backgroundError: unknown;
-  const pause = async () => {
-    if (store.read().demo.delay)
-      await new Promise((resolve) => setTimeout(resolve, 250));
-  };
   function currentUser(state: DemoState) {
     return (
       state.users.find((user) => user.id === state.session?.user.id) ??
@@ -86,7 +80,7 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
     generation.completedAt = now();
   }
 
-  // Reloading interrupts local timers. Refund unfinished work on startup.
+  // Recover unfinished generations saved by earlier versions.
   const saved = store.read();
   const unfinished = saved.generations.filter(
     (g) => g.status === "PENDING" || g.status === "PROCESSING",
@@ -98,57 +92,8 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
     store.save(saved);
   }
 
-  function later(action: () => void, ms: number) {
-    const timer = setTimeout(() => {
-      timers.delete(timer);
-      try {
-        action();
-      } catch (error) {
-        backgroundError = error;
-      }
-    }, ms);
-    timers.add(timer);
-  }
-  function finishGeneration(id: string, shouldFail: boolean) {
-    const state = store.read();
-    const generation = state.generations.find((g) => g.id === id);
-    if (!generation || generation.status !== "PROCESSING") return;
-    if (shouldFail)
-      refund(
-        state,
-        generation,
-        "Демонстрационный сбой AI. Все 10 единиц возвращены.",
-      );
-    else {
-      generation.result = makePoem(generation);
-      generation.status = "COMPLETED";
-      generation.completedAt = now();
-    }
-    store.save(state);
-  }
-  function processGeneration(id: string, shouldFail: boolean) {
-    const delay = store.read().demo.delay;
-    later(
-      () => {
-        const state = store.read();
-        const generation = state.generations.find((g) => g.id === id);
-        if (!generation || generation.status !== "PENDING") return;
-        generation.status = "PROCESSING";
-        generation.startedAt = now();
-        store.save(state);
-        later(() => finishGeneration(id, shouldFail), delay ? 2200 : 20);
-      },
-      delay ? 350 : 0,
-    );
-  }
-  function dispose() {
-    timers.forEach(clearTimeout);
-    timers.clear();
-  }
-
   return {
     async login({ email, password }) {
-      await pause();
       const state = store.read();
       const user = state.users.find(
         (u) => u.email === email.trim().toLowerCase(),
@@ -165,23 +110,19 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
       return session;
     },
     async logout() {
-      await pause();
       const state = store.read();
       state.session = null;
       store.save(state);
     },
     async getCurrentUser() {
-      await pause();
       const state = store.read();
       return state.users.find((u) => u.id === state.session?.user.id) ?? null;
     },
     async getWallet() {
-      await pause();
       const state = store.read();
       return walletFor(state, currentUser(state).id);
     },
     async getTransactions() {
-      await pause();
       const state = store.read();
       const user = currentUser(state);
       return state.transactions
@@ -189,7 +130,6 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
     async getQuote() {
-      await pause();
       const state = store.read();
       const balance = walletFor(state, currentUser(state).id).balance;
       return {
@@ -200,7 +140,6 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
       };
     },
     async generate(request) {
-      await pause();
       const state = store.read();
       const user = currentUser(state);
       const { requestId, mood, stanzaCount } = request;
@@ -246,11 +185,11 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
         mood,
         stanzaCount,
         result: null,
-        status: "PENDING",
+        status: "PROCESSING",
         cost: COST,
         errorMessage: null,
         createdAt: now(),
-        startedAt: null,
+        startedAt: now(),
         completedAt: null,
       };
       addTransaction(
@@ -261,28 +200,30 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
         `Стихотворение «${topic}»`,
       );
       state.generations.push(generation);
-      const shouldFail = state.demo.failNext;
+      if (state.demo.failNext)
+        refund(
+          state,
+          generation,
+          "Демонстрационный сбой AI. Все 10 единиц возвращены.",
+        );
+      else {
+        generation.result = makePoem(generation);
+        generation.status = "COMPLETED";
+        generation.completedAt = now();
+      }
       state.demo.failNext = false;
-      store.save(state); // Balance, DEBIT and generation are saved together.
-      processGeneration(generation.id, shouldFail);
+      store.save(state); // Result, balance and transactions are saved together.
       return generation;
     },
     async getGeneration(id) {
-      await pause();
       const state = store.read();
       const user = currentUser(state);
       const generation =
         state.generations.find((g) => g.id === id && g.userId === user.id) ??
         fail("NOT_FOUND", "Генерация не найдена.");
-      if (
-        backgroundError &&
-        ["PENDING", "PROCESSING"].includes(generation.status)
-      )
-        throw backgroundError;
       return generation;
     },
     async getGenerations() {
-      await pause();
       const state = store.read();
       const user = currentUser(state);
       return state.generations
@@ -290,11 +231,6 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     },
     demo: {
-      async setDelay(enabled) {
-        const state = store.read();
-        state.demo.delay = enabled;
-        store.save(state);
-      },
       async failNext() {
         const state = store.read();
         state.demo.failNext = true;
@@ -302,10 +238,7 @@ export function createLocalApi(storage: Storage = window.localStorage): Api {
       },
       async reset() {
         store.save(createDemoData());
-        dispose();
-        backgroundError = undefined;
       },
     },
-    dispose,
   };
 }

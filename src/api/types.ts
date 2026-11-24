@@ -82,11 +82,9 @@ export interface Api {
   getTransactions(): Promise<WalletTransaction[]>;
   // Local test controls; no corresponding user interface or HTTP endpoints.
   demo?: {
-    setDelay(enabled: boolean): Promise<void>;
     failNext(): Promise<void>;
     reset(): Promise<void>;
   };
-  dispose(): void;
 }
 
 export interface DemoState {
@@ -97,5 +95,5 @@ export interface DemoState {
   transactions: WalletTransaction[];
   generations: Generation[];
   session: AuthSession | null;
-  demo: { delay: boolean; failNext: boolean };
+  demo: { failNext: boolean };
 }

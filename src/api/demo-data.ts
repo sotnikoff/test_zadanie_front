@@ -48,7 +48,7 @@ export function createDemoData(): DemoState {
     transactions: [],
     generations: [],
     session: null,
-    demo: { delay: true, failNext: false },
+    demo: { failNext: false },
   };
   const daysAgo = (days: number) =>
     new Date(Date.now() - days * 86400000).toISOString();
