@@ -1,6 +1,6 @@
 # Mini-Kadrika — архитектура
 
-**Статус: Draft · 25.11.2026.** As-Is проверен по коду `c6bf957`; To-Be — предложение под [требования и допущения](requirements.md), не реализованный backend.
+**Статус: Draft · 25.11.2026.** Исходный As-Is проверен по коду `c6bf957`, описание frontend актуализировано после удаления поллинга; To-Be — предложение под [требования и допущения](requirements.md), не реализованный backend.
 
 ## Стратегия To-Be
 
@@ -65,11 +65,11 @@ C4-контейнер SPA — приложение в браузере, не о�
 | Авторизация / навигация | [router](../src/app/router/index.tsx): `Guard`, Layout и маршруты `/`, `/login`, `/generate`, `/history`, `/history/:id`, `/billing`. [LoginPage](../src/pages/LoginPage.tsx): вход, очистка query-кэша и демо-сброс. |
 | Генерации | [GenerationPages](../src/pages/GenerationPages.tsx): форма, quote, UUID в React state, список/фильтр и детали. Поля заблокированы на время mutation. |
 | Биллинг и сводка | [BillingPage](../src/pages/BillingPage.tsx), [Dashboard](../src/pages/Dashboard.tsx), [summary.ts](../src/shared/utils/summary.ts): чтение баланса, операций и расчёт чистого расхода. |
-| Данные и UI | [useData.ts](../src/hooks/useData.ts): query keys с user ID, синхронизация quote/кошелька/операций; [common.tsx](../src/shared/components/common.tsx): статусы, копирование, таблицы и состояния ошибок. |
+| Данные и UI | [useData.ts](../src/hooks/useData.ts): query keys с user ID, чтение генераций/кошелька/операций без таймеров; `useRefresh` в providers обновляет данные после генерации; [common.tsx](../src/shared/components/common.tsx): статусы, копирование, таблицы и состояния ошибок. |
 
 Зависимости: страницы → `useApi` / hooks → `Api`; composition root → фабрика → local либо http. Local → storage + demo-data; http → fetch + DTO + `AppError`. Context/hooks не проводят денежные операции. Это функциональная граница адаптеров, а не реализованная hexagonal-архитектура. Подробный существующий обзор — [frontend-architecture.md](frontend-architecture.md).
 
-Переключение: `VITE_DATA_SOURCE=local|http` (по умолчанию local), `VITE_API_BASE_URL` — HTTP(S) URL, по умолчанию `http://localhost:8000/api/v1`; после изменения конфигурации нужен перезапуск dev-сервера / новая сборка. См. [.env.example](../.env.example). Неверный источник останавливает старт. Local выполняет генерацию сразу; detail опрашивается каждые 500 мс, список — 600 мс, только при `PENDING`/`PROCESSING`. Вкладки не синхронизированы: storage держит собственный снимок, поэтому многовкладочное списание небезопасно.
+Переключение: `VITE_DATA_SOURCE=local|http` (по умолчанию local), `VITE_API_BASE_URL` — HTTP(S) URL, по умолчанию `http://localhost:8000/api/v1`; после изменения конфигурации нужен перезапуск dev-сервера / новая сборка. См. [.env.example](../.env.example). Неверный источник останавливает старт. Local выполняет генерацию сразу. Периодический опрос списка и деталей удалён; после генерации обновляются активные запросы, затем открывается результат. Новые страницы читают данные через query hooks. Вкладки не синхронизированы: storage держит собственный снимок, поэтому многовкладочное списание небезопасно.
 
 ## Минимальные модули backend (To-Be)
 
@@ -93,7 +93,7 @@ C4-контейнер SPA — приложение в браузере, не о�
 | `POST /auth/logout` | Без тела → 204, инвалидировать сессию. | С CSRF; повторный logout допустим без активной сессии; есть. |
 | `GET /auth/me` | → 200 `User` или `null`, если сессии нет/аккаунт неактивен. | Публичная проверка сессии; есть. |
 | `GET /generations/quote` | → `{cost,balance,balanceAfter,canGenerate}`; только снимок, без резервирования. | Активный пользователь; есть. |
-| `POST /generations` | `{requestId,topic,instructions,mood,stanzaCount}` → 200 `Generation` в `COMPLETED`/`FAILED` после синхронного исполнения. Повтор уже принятого ключа → 200 с текущей записью, в том числе `PROCESSING`, без второго AI-вызова. | Активный пользователь; есть, семантика меняется относительно старого 202. |
+| `POST /generations` | `{requestId,topic,instructions,mood,stanzaCount}` → 200 `Generation` в `COMPLETED`/`FAILED` после синхронного исполнения. Повтор уже принятого ключа → 200 с текущей записью, в том числе `PROCESSING`, без второго AI-вызова. | Активный пользователь; есть, предлагается синхронное выполнение. |
 | `GET /generations` | → 200 `Generation[]` пользователя, новые первыми. | Активный пользователь; есть. Фильтр по статусу пока в UI. |
 | `GET /generations/{id}` | → 200 своя `Generation`; чужая/отсутствующая → 404. | Активный пользователь; есть. |
 | `GET /generations/by-request/{requestId}` | → 200 своя `Generation` по ключу, иначе 404; нужен при потере ответа POST с серверным ID. | Активный пользователь; новый метод порта/адаптера, маршрут должен предшествовать `{id}`. |
@@ -108,7 +108,7 @@ DTO из [types.ts](../src/api/types.ts) остаются отправной т�
 
 | Факт As-Is | Предложение / риск To-Be |
 | --- | --- |
-| [api-contracts.md](api-contracts.md) обещает 202, очередь и polling; README — синхронный ответ. | Основной POST возвращает итог за один запрос. `PENDING` не создаётся; `PROCESSING` нужен для чтения во время исполнения/после сбоя. Поле статуса уже допускает эти значения. |
+| [api-contracts.md](api-contracts.md) описывает синхронный POST; поллинг из UI удалён. | Основной POST возвращает итог за один запрос. Для повторного запроса с `PROCESSING` и потери ответа нужно реализовать отдельное восстановление по ключу. `PENDING` в backend не создаётся. |
 | `AuthSession` и декодер требуют `sessionId` в JSON. | Настоящий ключ Django session не передавать JS. Изменить тип/декодер на `{user,createdAt}`; UI использует отдельный `/auth/me`. |
 | `credentials: include` есть, CSRF-заголовка/инициализации нет. | Same-origin и CSRF bootstrap + `X-CSRFToken`; cookie-сессия сама по себе недостаточна. Для разных origin отдельно согласовать CORS, не wildcard. |
 | `requestId` хранится только в state формы; при изменении полей/перезагрузке меняется. Нет поиска по ключу. | Сохранять незавершённый ключ и параметры отдельно для пользователя до терминального ответа; после сетевой ошибки сначала читать состояние. 404 допускает повтор с тем же ключом, не с новым. |
