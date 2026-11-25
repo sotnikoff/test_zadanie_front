@@ -32,7 +32,7 @@ import {
   DetailPage,
 } from "../../pages/GenerationPages";
 import { BillingPage } from "../../pages/BillingPage";
-import { useWallet, useGenerationSync } from "../../hooks/useData";
+import { useWallet } from "../../hooks/useData";
 import { ErrorState, Loading, number } from "../../shared/components/common";
 import { errorMessage } from "../../shared/errors/AppError";
 function Guard() {
@@ -50,7 +50,6 @@ const links = [
   ["/billing", "Баланс", Wallet],
 ] as const;
 function Layout() {
-  useGenerationSync();
   const { data: user } = useCurrentUser();
   const wallet = useWallet();
   const api = useApi();

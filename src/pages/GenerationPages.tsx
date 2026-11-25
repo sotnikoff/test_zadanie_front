@@ -11,7 +11,6 @@ import {
   GenerationRows,
   Heading,
   Loading,
-  pending,
   Poem,
 } from "../shared/components/common";
 import { Button } from "../shared/components/ui/button";
@@ -39,8 +38,8 @@ export function GeneratePage() {
         mood,
         stanzaCount: count,
       }),
-    onSuccess: (g) => {
-      void refresh();
+    onSuccess: async (g) => {
+      await refresh();
       navigate(`/history/${g.id}`);
     },
     onError: () => {
@@ -271,8 +270,6 @@ export function DetailPage() {
   const query = useQuery({
     queryKey: ["generation", user?.id, id],
     queryFn: () => api.getGeneration(id),
-    refetchInterval: (q) =>
-      q.state.data && pending(q.state.data) ? 500 : false,
   });
   if (query.isPending) return <Loading />;
   if (query.error)
