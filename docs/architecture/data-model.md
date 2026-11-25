@@ -1,6 +1,6 @@
 # Mini-Kadrika — предварительная модель данных
 
-**Статус: Draft · 25.11.2026.** To-Be PostgreSQL; модели/миграции ещё не реализованы. Источник As-Is — [types.ts](../src/api/types.ts), [local.ts](../src/api/local.ts), [storage.ts](../src/api/storage.ts). Правила операций — [business-rules.md](business-rules.md), API-проекции — [architecture.md](architecture.md).
+**Статус: Draft · 25.11.2026.** To-Be PostgreSQL; модели/миграции ещё не реализованы. Источник As-Is — [types.ts](../../src/api/types.ts), [local.ts](../../src/api/local.ts), [storage.ts](../../src/api/storage.ts). Правила операций — [business-rules.md](../product/business-rules.md), API-проекции — [architecture.md](architecture.md).
 
 ## ERD
 
