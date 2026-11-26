@@ -35,6 +35,7 @@ npm run dev
 - [Карта документов](docs/README.md).
 - [Требования и вопросы заказчику](docs/product/requirements.md).
 - [Архитектура будущего MVP](docs/architecture/architecture.md).
+- [Спецификация backend для AI-агентов: Docker, план и приёмка](docs/backend/README.md).
 - [Сценарий демонстрации](docs/prototype/demo-scenarios.md).
 - [Критерии приёмки и результаты проверок](docs/testing/acceptance-criteria.md).
 
